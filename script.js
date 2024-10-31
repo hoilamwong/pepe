@@ -9,15 +9,13 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass'
 import { SMAAPass } from 'three/examples/jsm/postprocessing/SMAAPass.js'
-import { BokehShader2, SSRPass } from 'three/examples/jsm/Addons.js'
-import { BokehShader, BokehDepthShader } from 'three/addons/shaders/BokehShader2.js';
+import { SSRPass } from 'three/examples/jsm/Addons.js'
 
 const postprocessing = {};
 window.scrollTo(0, document.body.scrollHeight);
 
 const initScrollY = window.scrollY
-console.log(initScrollY);
-console.log(document.body.scrollHeight);
+console.log(window.scrollY);
 
 
 /**
@@ -50,9 +48,9 @@ scene.add(cameraGroup)
 
 const camera = new THREE.PerspectiveCamera(50, sizes.width / sizes.height, 1, 1000)
 camera.position.set(0, 5, 15)
+cameraGroup.add(camera)
 console.log(camera);
-
-
+ 
 // Scroll
 let scrollY = window.scrollY
 
@@ -60,15 +58,10 @@ window.addEventListener('scroll', () => {
     scrollY = window.scrollY
 })
 
-
-cameraGroup.add(camera)
-
 /**
  * Cursor
  */
 const cursor = {}
-let mouse = new THREE.Vector2()
-var raycaster = new THREE.Raycaster()
 cursor.x = 0
 cursor.y = 0
 
@@ -78,25 +71,6 @@ window.addEventListener('mousemove', (event) => {
     cursor.x = event.clientX / sizes.width - 0.5
     cursor.y = event.clientY / sizes.height - 0.5
 
-    mouse.x = (event.clientX - (sizes.width / 2)) / (sizes.width / 2);
-    mouse.y = - (event.clientY - (sizes.height / 2)) / (sizes.height / 2);
-    // console.log(mouse);
-
-    raycaster.setFromCamera(mouse, camera);
-
-    var intersects = raycaster.intersectObjects(scene.children, true);
-    if (intersects.length > 0) {
-        var targetDistance = intersects[0].distance
-        var sdistance = smoothstep(camera.near, camera.far, targetDistance);
-        var ldistance = linearize(1 -  sdistance);
-        console.log('ldistance ', ldistance);
-
-    }
-
-    // postprocessing.bokeh_uniforms[ 'focusCoords' ].value.set( event.clientX / window.innerWidth, 1 - ( event.clientY / window.innerHeight ) );
-
-
-    // postprocessing.bokeh_uniforms['focusCoords'].value.set(event.clientX / window.innerWidth, 1 - (event.clientY / window.innerHeight));
 })
 
 
@@ -134,23 +108,6 @@ window.addEventListener('resize', () => {
 // controls.enablePan = false
 // controls.enableZoom = false
 
-/**
- * Environment map
- */
-const cubeTextureLoader = new THREE.CubeTextureLoader()
-const textureLoader = new THREE.TextureLoader()
-const environmentMap = cubeTextureLoader.load([
-    '/textures/environmentMaps/0/px.jpg',
-    '/textures/environmentMaps/0/nx.jpg',
-    '/textures/environmentMaps/0/py.jpg',
-    '/textures/environmentMaps/0/ny.jpg',
-    '/textures/environmentMaps/0/pz.jpg',
-    '/textures/environmentMaps/0/nz.jpg'
-])
-environmentMap.colorSpace = THREE.SRGBColorSpace
-
-// scene.background = environmentMap
-// scene.environment = environmentMap
 
 /**
  * Lights
@@ -191,21 +148,21 @@ gltfLoader.load(
             // console.log(object.name, object);
 
             // gltf.scene.scale.set(2, 2, 2)
-            gltf.scene.position.y = -2.5
+            gltf.scene.position.y = 0
 
             if (object.name == 'Sun') {
                 console.log('found sun', object)
                 object.castShadow = true
                 object.shadow.bias = 3
                 object.shadow.normalBias = 0.3
-                object.intensity = 3
+                object.intensity = 10
             }
             if (object.name == 'Sun001') {
                 console.log('found sun', object)
                 object.castShadow = false
                 object.shadow.bias = 0
                 object.shadow.normalBias = 0.3
-                object.intensity = 5
+                object.intensity = 10
             }
             if (object.name == 'floor') {
                 const newFloor = new THREE.MeshMatcapMaterial()
@@ -286,13 +243,13 @@ if (renderer.getPixelRatio() === 1 && !renderer.capabilities.isWebGL2) {
 // Unreal Bloom pass initialize
 const unrealBloomPass = new UnrealBloomPass()
 unrealBloomPass.enabled = true
-unrealBloomPass.strength = 0.9
-unrealBloomPass.radius = 1, 3
+unrealBloomPass.strength = 0.45
+unrealBloomPass.radius = 2
 unrealBloomPass.threshold = 0.471
 
 gui.add(unrealBloomPass, 'enabled')
-gui.add(unrealBloomPass, 'strength').min(0).max(10).step(0.001)
-gui.add(unrealBloomPass, 'radius').min(0).max(2).step(0.001)
+gui.add(unrealBloomPass, 'strength').min(0).max(3).step(0.001)
+gui.add(unrealBloomPass, 'radius').min(0).max(5).step(0.001)
 gui.add(unrealBloomPass, 'threshold').min(0).max(1).step(0.001)
 
 // SSR pass initialize
@@ -309,20 +266,19 @@ ssrPass.opacity = 0.3
 // DOF
 const bokehPass = new BokehPass(scene, camera, {
     focus: 10,
-    aperture: 0.1,
+    aperture: 0,
     maxblur: 0.01,
     width: window.innerWidth,
     height: window.innerHeight,
 });
-
-
-// const bokehPass = new BokehShader2
 console.log(bokehPass);
-
+// bokehPass.enabled = false
 gui.add(bokehPass, 'enabled')
 gui.add(bokehPass.uniforms.focus, 'value').min(-5000).max(500000).step(0.0001)
 gui.add(bokehPass.uniforms.aperture, 'value').min(-1).max(1).step(0.001)
 gui.add(bokehPass.uniforms.maxblur, 'value').min(0).max(0.5).step(0.0001)
+
+
 effectComposer.addPass(ssrPass)
 effectComposer.addPass(unrealBloomPass)
 effectComposer.addPass(bokehPass);
@@ -331,24 +287,31 @@ effectComposer.addPass(bokehPass);
  * Animate
  */
 const clock = new THREE.Clock()
+let previousTime = 0
 
 const tick = () => {
     const elapsedTime = clock.getElapsedTime()
+		const deltaTime = elapsedTime - previousTime
+		previousTime = elapsedTime
+		// console.log(previousTime);
+		
 
     // Animate Camera
-    // camera.position.z = 15 * scrollY/ initScrollY
-    // console.log(scrollY / initScrollY);
-
-
+		var zoomFactor =  ((scrollY / initScrollY) * 15) + 5
+		// to adjust the height by moving the whole scene
+		var scrollFactor = ((scrollY / initScrollY) * 3) + 2
+		console.log(scrollFactor);
+		
+    camera.position.z = zoomFactor
+		camera.position.y = scrollFactor
+		// gltf.scnee.position.y = camPosY
+		// cameraGroup.position.set(0, camPosY, camPosZ)
 
     const parallaxX = cursor.x
     const parallaxY = - cursor.y
-    // // cameraGroup.position.set(parallaxX, parallaxY, 0)
-    // // console.log(cameraGroup.position);
-
-    camera.position.x = parallaxX
-    camera.position.y = parallaxY
-
+    cameraGroup.position.set(parallaxX, parallaxY, 0)
+		cameraGroup.position.x += (parallaxX - cameraGroup.position.x) * 2 * deltaTime
+		cameraGroup.position.y += (parallaxY - cameraGroup.position.y) * 2 * deltaTime
     // Update controls
     // controls.update()
 
