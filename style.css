@@ -1,0 +1,32 @@
+* {
+    margin: 0;
+    padding: 0;
+}
+
+/* html,
+body
+{
+    overflow: hidden;
+} */
+
+* {
+    /* hide scrollbar for firefox */
+    scrollbar-width: none;
+}
+
+#scroll {
+    height:5000px;
+}
+
+/* hide scroll bar for chrome and opera */
+::-webkit-scrollbar {
+    display: none;
+    width: 0px;
+}
+
+.webgl {
+    position: fixed;
+    top: 0;
+    left: 0;
+    outline: none;
+}
