@@ -2,13 +2,9 @@ import * as THREE from "three";
 import GUI from 'lil-gui'
 
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
-import {
-  CSS3DRenderer,
-  CSS3DObject
-} from "three/examples/jsm/renderers/CSS3DRenderer.js";
+import { CSS3DRenderer, CSS3DObject } from "three/examples/jsm/renderers/CSS3DRenderer.js";
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 
-// import { TrackballControls } from "three/examples/jsm/controls/TrackballControls.js";
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js'
 import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
@@ -30,8 +26,31 @@ const sizes = {
 let controls, gui;
 let effectComposer
 let lookAt = new THREE.Vector3(0, 0, 0);
-init();
 
+/**
+ * Resize
+ */
+window.addEventListener('resize', () => {
+  // Update sizes
+  sizes.width = window.innerWidth
+  sizes.height = window.innerHeight
+
+  // Update camera
+  camera.aspect = sizes.width / sizes.height
+  camera.updateProjectionMatrix()
+
+  // Update renderer
+  renderer.setSize(sizes.width, sizes.height)
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+
+  renderer2.setSize(sizes.width, sizes.height)
+
+  // Update effect composer
+  effectComposer.setSize(sizes.width, sizes.height)
+  effectComposer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+})
+
+init();
 function init() {
   gui = new GUI()
   gui.close()
@@ -41,18 +60,20 @@ function init() {
 
   scene = new THREE.Scene();
   scene.background = new THREE.Color('black')
-
   scene2 = new THREE.Scene();
 
   /**
    * Renderers
    */
+
+  // Renderer for the iframe
   renderer2 = new CSS3DRenderer();
   renderer2.setSize(window.innerWidth, window.innerHeight);
   renderer2.domElement.style.position = "absolute";
   renderer2.domElement.style.top = 0;
   document.querySelector("#css").appendChild(renderer2.domElement);
 
+  // Reg WebGLRenderer
   renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
   renderer.setClearColor(0x000000, 0);
   renderer.setPixelRatio(window.devicePixelRatio);
@@ -61,15 +82,22 @@ function init() {
   renderer.shadowMap.type = THREE.PCFSoftShadowMap; // default THREE.PCFShadowMap
   document.querySelector("#webgl").appendChild(renderer.domElement);
 
+  // OrbitControl for Renderer2 
+  // note: iframe would only work if cursor is disabled for WebGLRenderer
   controls = new OrbitControls(camera, renderer2.domElement);
   controls.target.set(0, 0, 0);
   controls.enableDamping = true
   controls.dampingFactor = 0.05
-  controls.maxZoom = 10
+  controls.minDistance = 300
+  controls.maxDistance  = 2000
+  controls.maxPolarAngle = Math.PI / 2;
+  controls.maxTargetRadius = 80
+  controls.zoomSpeed = 3
   controls.update();
 
   /**
    * Cursor
+   * WIP: parallax effect
    */
   const cursor = {}
   cursor.x = 0
@@ -81,29 +109,10 @@ function init() {
     cursor.y = event.clientY / sizes.height - 0.5
   })
 
-
   /**
-   * Resize
+   * iframe element
+   * source: https://codesandbox.io/p/sandbox/youtube-streaming-in-3d-world-jjv5e?file=%2Fsrc%2Findex.js%3A97%2C1&from-embed
    */
-  window.addEventListener('resize', () => {
-    // Update sizes
-    sizes.width = window.innerWidth
-    sizes.height = window.innerHeight
-
-    // Update camera
-    camera.aspect = sizes.width / sizes.height
-    camera.updateProjectionMatrix()
-
-    // Update renderer
-    renderer.setSize(sizes.width, sizes.height)
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
-
-    // Update effect composer
-    effectComposer.setSize(sizes.width, sizes.height)
-    effectComposer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
-  })
-
-
   var element = document.createElement("iframe");
   element.style.width = "650px";
   element.style.height = "500px";
@@ -114,11 +123,12 @@ function init() {
   domObject.scale.set(domObjectScale, domObjectScale, 1)
   domObject.rotation.set(-3.141, 0.95 + 3.141, 3.141)
   domObject.position.set(118.41244581647652, 92.79841251765995, -107.83197783392244)
-  // domObject.position.set(118, 200.79841251765995, -107.83197783392244)
   scene2.add(domObject);
-
   // document.addEventListener("mousemove", onDocumentMouseMove, false);
 
+  /**
+   * iframe plane
+   */
   var material = new THREE.MeshStandardMaterial({
     opacity: 0.2,
     color: new THREE.Color("black"),
@@ -135,7 +145,7 @@ function init() {
   scene.add(screenFrame);
 
   /**
-   * Models
+   * GLTF Model
    */
   const gltfLoader = new GLTFLoader()
   gltfLoader.load(
@@ -144,12 +154,10 @@ function init() {
       gltf.scene.traverse((object) => {
 
         if (object.isMesh) {
-          object.material.envMapIntensity = 2.5
           object.material.needsUpdate = true
           object.castShadow = true
           object.receiveShadow = true
         }
-
         gltf.scene.position.y = -100
         gltf.scene.scale.set(gltfScale, gltfScale, gltfScale)
 
@@ -159,7 +167,7 @@ function init() {
           object.castShadow = true
           object.shadow.bias = 3
           object.shadow.normalBias = 0.3
-          object.intensity = 10
+          object.intensity = 35
           gui.add(object, 'intensity').min(0).max(100).name('blue sun intensity')
         }
 
@@ -168,7 +176,7 @@ function init() {
           object.castShadow = false
           object.shadow.bias = 0
           object.shadow.normalBias = 0.3
-          object.intensity = 10
+          object.intensity = 30
           gui.add(object, 'intensity').min(0).max(100).name('green sun intensity')
         }
 
@@ -191,6 +199,7 @@ function init() {
   /**
  * Post processing
  */
+// antialias for post processing composer
   const renderTarget = new THREE.WebGLRenderTarget(
     800,
     600,
@@ -208,15 +217,14 @@ function init() {
   const renderPass = new RenderPass(scene, camera)
   effectComposer.addPass(renderPass)
 
-  // Antialias pass
+  // Antialias pass if !WebGL2
   if (renderer.getPixelRatio() === 1 && !renderer.capabilities.isWebGL2) {
     const smaaPass = new SMAAPass()
     effectComposer.addPass(smaaPass)
-
     console.log('Using SMAA')
   }
 
-  // SSR pass initialize
+  // SSR pass 
   const ssrPass = new SSRPass({
     renderer,
     scene,
@@ -225,21 +233,22 @@ function init() {
     height: sizes.height,
   })
   ssrPass.maxDistance = 800
-  ssrPass.opacity = 0.3
+  ssrPass.opacity = 0.5
+  gui.add(ssrPass, 'opacity').min(0).max(1).step(0.01).name('Reflection opacity')
 
-  // Unreal Bloom pass initialize
+  // Unreal Bloom pass
   const unrealBloomPass = new UnrealBloomPass()
   unrealBloomPass.enabled = false
   unrealBloomPass.strength = 0.45
   unrealBloomPass.radius = 2
   unrealBloomPass.threshold = 0.471
 
-  gui.add(unrealBloomPass, 'enabled')
+  gui.add(unrealBloomPass, 'enabled').name('Bloom enabled')
   gui.add(unrealBloomPass, 'strength').min(0).max(3).step(0.001)
   gui.add(unrealBloomPass, 'radius').min(0).max(5).step(0.001)
   gui.add(unrealBloomPass, 'threshold').min(0).max(1).step(0.001)
 
-  // DOF
+  // DOF pass
   const bokehPass = new BokehPass(scene, camera, {
     focus: 10,
     aperture: 0,
@@ -248,7 +257,7 @@ function init() {
     height: window.innerHeight,
   });
   bokehPass.enabled = false
-  gui.add(bokehPass, 'enabled')
+  gui.add(bokehPass, 'enabled').name('FOV enabled')
 
 
   effectComposer.addPass(ssrPass)
@@ -256,10 +265,10 @@ function init() {
   effectComposer.addPass(bokehPass);
 }
 
-function onDocumentMouseMove(event) {
+// function onDocumentMouseMove(event) {
   // mouseX = event.clientX - windowHalfX;
   // mouseY = event.clientY - windowHalfY;
-}
+// }
 /**
  * Animate
  */
