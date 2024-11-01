@@ -3,19 +3,9 @@
     padding: 0;
 }
 
-/* html,
-body
-{
-    overflow: hidden;
-} */
-
 * {
     /* hide scrollbar for firefox */
     scrollbar-width: none;
-}
-
-#scroll {
-    height:2000px;
 }
 
 /* hide scroll bar for chrome and opera */
@@ -24,9 +14,20 @@ body
     width: 0px;
 }
 
-.webgl {
+#scroll {
+    height: 2000px;
+}
+
+#css,
+#webgl {
+    width: 100%;
+    height: 100%;
     position: fixed;
     top: 0;
     left: 0;
-    outline: none;
+    display: block;
+}
+
+#webgl {
+    pointer-events: none;
 }
